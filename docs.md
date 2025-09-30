@@ -68,6 +68,58 @@ GitHub: https://github.com/pololu/vl53l0x-arduino
 GitHub: https://github.com/phyphox/phyphox-arduino
 ```
 
+## 🏷️ 複数センサー対応のための設定
+
+### センサー名のカスタマイズ方法
+
+#### コード内での設定変更
+```cpp
+// センサー名の設定（30行目付近）
+const char* sensorName = "phys_ken_001";  // ←ここを変更
+
+// 使用例:
+const char* sensorName = "phys_ken_001";  // 1班用
+const char* sensorName = "phys_ken_002";  // 2班用
+const char* sensorName = "phys_ken_003";  // 3班用
+const char* sensorName = "class2_A";      // 2組A班用
+const char* sensorName = "team_red";      // 赤チーム用
+```
+
+#### 推奨命名規則
+```cpp
+// 標準的な命名パターン
+"phys_ken_XXX"    // XXX = 001, 002, 003...
+"class_N_team_X"  // N = クラス番号, X = 班番号
+"sensor_N"        // N = 通し番号
+"group_X_device"  // X = グループ名
+```
+
+#### 注意事項
+- **最大20文字程度**まで推奨（Phyphox表示制限）
+- **英数字とアンダースコア**のみ使用推奨
+- **日本語は文字化けの可能性**があるため避ける
+- **重複しない名前**にする（同一ネットワーク内）
+
+### 大量デプロイメント用の管理
+
+#### バッチ書き込み用スクリプト例
+```bash
+# センサー名のリスト生成
+for i in {001..020}; do
+  sed "s/phys_ken_001/phys_ken_$i/g" template.ino > sensor_$i.ino
+  echo "Generated: sensor_$i.ino"
+done
+```
+
+#### センサー管理台帳
+```
+| デバイス | センサー名 | MAC Address | 担当班 | 動作確認 |
+|----------|------------|-------------|---------|----------|
+| Device01 | phys_ken_001 | XX:XX:XX:XX:XX:01 | 1班 | ✓ |
+| Device02 | phys_ken_002 | XX:XX:XX:XX:XX:02 | 2班 | ✓ |
+| Device03 | phys_ken_003 | XX:XX:XX:XX:XX:03 | 3班 | ✓ |
+```
+
 ## コード構造解析
 
 ### 主要な処理フロー
@@ -76,7 +128,7 @@ setup() {
     M5.begin()                    // M5システム初期化
     Wire.begin(0, 26)            // I2C初期化（HAT用ピン）
     sensor.init()                // VL53L0Xセンサー初期化
-    PhyphoxBLE::start()          // BLE通信開始
+    PhyphoxBLE::start(sensorName) // BLE通信開始（センサー名指定）
     // Phyphox実験設定
 }
 
@@ -87,7 +139,7 @@ loop() {
     // 移動平均フィルタ処理
     // 速度計算
     PhyphoxBLE::write()          // BLEデータ送信
-    // LCD表示更新
+    // LCD表示更新（センサー名表示含む）
     // シリアル出力
     delay(10)                    // 10ms待機
 }
@@ -155,8 +207,8 @@ if (deltaTime > 0) {
 ### 実験構成
 ```cpp
 PhyphoxBleExperiment experiment;
-experiment.setTitle("phys_ken_001");
-experiment.setCategory("phys_ken_001");
+experiment.setTitle(sensorName);        // センサー名を実験名に使用
+experiment.setCategory(sensorName);     // カテゴリにもセンサー名を使用
 
 // 距離グラフ (Channel 0→1)
 PhyphoxBleExperiment::Graph distanceGraph;
@@ -174,6 +226,11 @@ PhyphoxBLE::write(distanceInMeters, speedInMps);
 // Channel 1: 距離（メートル）
 // Channel 2: 速度（m/s）
 ```
+
+### BLE通信制限
+- **同時接続数**: 理論上は無制限だが、実用的には**8-10台程度**
+- **通信距離**: 約10m（障害物なし）
+- **干渉**: 2.4GHz帯のWi-Fi等との干渉可能性
 
 ## トラブルシューティング
 
@@ -204,6 +261,19 @@ Phyphoxで検出されない
 解決: デバイス再起動、近距離での接続試行
 ```
 
+#### 複数センサー特有の問題
+```
+同じ名前のデバイスが複数表示される
+原因: センサー名の重複
+解決: 各センサーに異なる名前を設定
+```
+
+```
+他の班のセンサーに誤接続
+原因: センサー名の取り違え
+解決: 画面表示名を再確認、正しいデバイスに再接続
+```
+
 ## カスタマイズ例
 
 ### サンプリング周波数変更
@@ -225,6 +295,13 @@ const int filterSize = 5;   // より応答性重視
 const int filterSize = 20;  // より安定性重視
 ```
 
+### 表示カスタマイズ
+```cpp
+// LCD表示内容の変更
+sprite.printf("Team_%s\n", teamNumber);     // チーム番号表示
+sprite.printf("Class_%d Group_%d\n", classNum, groupNum); // クラス・グループ表示
+```
+
 ## 性能特性
 
 ### 処理性能
@@ -236,6 +313,11 @@ const int filterSize = 20;  // より安定性重視
 - **測定中**: 約80-120mA
 - **待機中**: 約20-40mA  
 - **連続動作時間**: 約2-3時間
+
+### 複数センサー運用時の制約
+- **推奨同時接続数**: 8-10台
+- **Bluetooth通信品質**: 台数増加に伴い低下
+- **電波干渉**: 2.4GHz帯機器との競合
 
 ## 関連ドキュメント
 
@@ -254,6 +336,8 @@ const int filterSize = 20;  // より安定性重視
 |------------|------|----------|
 | 1.0 | - | M5StickC Plus版（オリジナル） |
 | 2.0 | 2024 | M5StickC Plus2対応版 |
+| 2.1 | 2024 | 複数センサー対応、班別管理機能追加 |
 
 ---
-⚙️ **開発者へ**: このプロジェクトの改良やフォークを歓迎します。Issue報告やPull Requestをお待ちしています。
+⚙️ **開発者へ**: このプロジェクトの改良やフォークを歓迎します。Issue報告やPull Requestをお待ちしています。  
+🏫 **教育関係者へ**: 複数センサーの同時運用により、効果的なグループ学習環境を構築できます。
