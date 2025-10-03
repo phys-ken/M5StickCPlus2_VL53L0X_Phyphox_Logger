@@ -2,130 +2,62 @@
 
 M5StickC Plus2とToF HATを使って距離を測定し、Phyphoxアプリでリアルタイムグラフ表示できるプロジェクトです。
 
-## 概要
+## 📖 詳細なドキュメント
 
-- **距離測定**: ToF HAT（VL53L0Xセンサ）で0〜3mの距離を測定
+**完全なドキュメントサイトを公開しています：**
+
+### 🌐 [📚 公式ドキュメントサイト](https://phys-ken.github.io/M5StickCPlus2_VL53L0X_Phyphox_Logger/)
+
+対象者別の詳しいガイドは以下のページをご覧ください：
+
+- **🎓 [学習者向けガイド](https://phys-ken.github.io/M5StickCPlus2_VL53L0X_Phyphox_Logger/student/)** - 基本的な使い方と実験手順
+- **👨‍🏫 [教師向けガイド](https://phys-ken.github.io/M5StickCPlus2_VL53L0X_Phyphox_Logger/teacher/)** - 指導のポイントと技術的背景  
+- **🔧 [技術仕様書](https://phys-ken.github.io/M5StickCPlus2_VL53L0X_Phyphox_Logger/docs/)** - 開発環境とライブラリの詳細
+
+## 🚀 概要
+
+- **距離測定**: ToF HAT（VL53L0Xセンサ）で0〜2mの距離を測定
 - **リアルタイム表示**: 測定値を本体画面とPhyphoxアプリに同時表示
 - **データログ**: シリアル通信でCSV形式のデータ出力
+- **教育活用**: 物理・数学・情報の実験教材として最適
 
-## 必要な機材
+## 🛠️ 必要な機材
 
-- M5StickC Plus2
-- ToF HAT（VL53L0Xセンサ）
+| 機材 | 説明 |
+|------|------|
+| **M5StickC Plus2** | メインコントローラー |
+| **ToF HAT** | 距離センサーモジュール（本体上部装着） |
+| **スマートフォン** | Phyphoxアプリ用 |
 
-## 対象者別マニュアル
+## ⚠️ 重要な注意事項
 
-### 👨‍🎓 生徒・学習者向け
-- **[使い方マニュアル (student.md)](./student.md)** - 基本的な使い方と実験手順
+- **ToF HAT使用**: ToF UNIT（ケーブル接続）ではなく、ToF HAT（本体上部装着）を使用
+- **Arduino IDE必須**: PlatformIOは未対応のため、Arduino IDEでの開発が必要
 
-### 👨‍🏫 教師・指導者向け
-- **[指導者向けガイド (teacher.md)](./teacher.md)** - 技術的背景と指導のポイント
+## 📁 リポジトリ構成
 
-### 🔧 開発者・技術者向け
-- **[技術仕様書 (docs.md)](./docs.md)** - 開発環境とライブラリの詳細
+```
+M5StickCPlus2_VL53L0X_Phyphox_Logger/
+├── M5StickCPlus2_VL53L0X_Phyphox_Logger.ino  # メインのArduinoコード
+├── docs/                                     # ドキュメントファイル
+├── mkdocs.yml                               # サイト設定
+└── README.md                                # このファイル
+```
 
-## 重要な注意事項
+## 🎯 クイックスタート
 
-⚠️ **ToF HAT使用**: ToF UNIT（ケーブル接続）ではなく、ToF HAT（本体上部装着）を使用してください
+1. **[公式ドキュメントサイト](https://phys-ken.github.io/M5StickCPlus2_VL53L0X_Phyphox_Logger/)** で詳細な手順を確認
+2. **Arduino IDE** で必要ライブラリをインストール  
+3. **M5StickCPlus2_VL53L0X_Phyphox_Logger.ino** を書き込み
+4. **スマホにPhyphoxアプリ** をインストールして測定開始！
 
-⚠️ **Arduino IDE必須**: PlatformIOは未対応のため、Arduino IDEでの開発が必要です
+## 📄 ライセンス
 
-## ライセンス
-
-MITライセンス
+MIT License
 
 ---
-**プロジェクト作成**: M5StickC Plus用プロジェクトをPlus2向けに移植・改良
-| M5Unified | 最新版 | M5Stack製品の統合ライブラリ。M5StickCPlusライブラリの後継 |
-| VL53L0X | ^1.3.1 | STMicroelectronics製ToF距離センサー用ライブラリ |
-| phyphoxBle | ^1.2.3 | Phyphox物理実験アプリのBLE通信サポートライブラリ |
 
-## セットアップ手順
-
-1. **ハードウェア接続**
-   - M5StickC Plus2にToF HATを上部に装着
-
-2. **Arduino IDE設定**
-   - Arduino IDEを起動
-   - ボード設定で「M5StickC Plus2」を選択
-   - 上記必要ライブラリをインストール
-
-3. **コードアップロード**
-   - このプロジェクトの`.ino`ファイルをArduino IDEで開く
-   - M5StickC Plus2をUSBケーブルで接続
-   - コンパイル＆書き込み実行
-
-## 使い方
-
-### その１：シリアル通信モード
-
-1. M5StickC Plus2のAボタン（画面下の大きなボタン）を押す
-2. 内蔵LEDが点灯し、シリアルモニタに測定結果を送信開始
-3. ボタンを押した時刻を基準に、経過時間と距離をカンマ区切りで表示
-4. 再度Aボタンを押すとログ停止
-
-**シリアル出力フォーマット:**
-```
-<---!!start!!--->
----sec , m---
-0.000,0.123
-0.010,0.124
-...
-<---!!stop!!--->
-```
-
-### その２：Phyphox Bluetooth連携モード
-
-1. M5StickC Plus2を起動
-2. LCDにセンサ名、距離、速度が表示される
-3. スマートフォンでPhyphoxアプリを起動
-4. 「新規実験追加」→「Bluetooth」を選択
-5. 画面に表示されているセンサ名と同じデバイスを選択
-6. リアルタイムで距離と速度のグラフが表示される
-
-## 機能説明
-
-### 測定機能
-- **測定範囲**: 0〜3m（3mを超える値は無効として処理）
-- **フィルタリング**: 移動平均フィルタ（10サンプル平均）で測定値を平滑化
-- **速度計算**: 前回との距離差から速度を自動計算
-
-### 表示機能
-- **LCD表示**: センサ名、距離、速度をリアルタイム表示
-- **LED表示**: 測定中は内蔵LED点灯
-- **シリアル出力**: CSV形式でデータ出力
-
-### Bluetooth機能
-- **Phyphox連携**: 距離と速度を同時にグラフ表示
-- **リアルタイム**: 遅延なしでデータ送信
-
-## トラブルシューティング
-
-### センサが認識されない場合
-- ToF HATがしっかり装着されているか確認
-- I2C接続（GPIO0:SDA, GPIO26:SCL）が正常か確認
-
-### Bluetooth接続できない場合
-- デバイス名が正しく表示されているか確認
-- Phyphoxアプリが最新版か確認
-- 他のBLEデバイスとの競合がないか確認
-
-### コンパイルエラーの場合
-- 全ての必要ライブラリがインストールされているか確認
-- Arduino IDEでM5StickC Plus2ボードが選択されているか確認
-
-## 今後の改良予定
-
-- [ ] シリアル通信結果をCSVダウンロードできるWebアプリの作成
-- [ ] より高精度な測定アルゴリズムの実装
-- [ ] バッテリー残量表示機能の追加
-
-## ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。
-
-## 参考資料
-
-- [M5Unified ライブラリドキュメント](https://github.com/m5stack/M5Unified)
-- [Phyphox公式サイト](https://phyphox.org/)
-- [VL53L0X センサーデータシート](https://www.st.com/resource/en/datasheet/vl53l0x.pdf)
+**🔗 リンク**
+- **📖 [ドキュメントサイト](https://phys-ken.github.io/M5StickCPlus2_VL53L0X_Phyphox_Logger/)** - 使い方・指導法・技術仕様
+- **🐛 [Issues](https://github.com/phys-ken/M5StickCPlus2_VL53L0X_Phyphox_Logger/issues)** - バグ報告・機能提案
+- **🏠 [Phyphox公式サイト](https://phyphox.org/)** - 物理実験アプリ
