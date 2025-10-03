@@ -1,1 +1,13 @@
 /.theia
+
+# Python virtual environment
+venv/
+*.pyc
+__pycache__/
+
+# MkDocs build
+site/
+
+# OS generated files
+.DS_Store
+Thumbs.db

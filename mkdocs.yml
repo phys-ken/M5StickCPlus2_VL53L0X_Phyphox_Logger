@@ -1,0 +1,85 @@
+site_name: M5StickC Plus2 距離測定ロガー
+site_description: M5StickC Plus2とToF HATを使った距離測定システム
+site_author: phys-ken
+repo_url: https://github.com/phys-ken/M5StickCPlus2_VL53L0X_Phyphox_Logger
+repo_name: phys-ken/M5StickCPlus2_VL53L0X_Phyphox_Logger
+
+theme:
+  name: material
+  language: ja
+  icon:
+    logo: material/ruler
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: ダークモードに切替
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: ライトモードに切替
+
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+
+plugins:
+  - search:
+      lang: ja
+  - mermaid2
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.mark
+  - pymdownx.keys
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+
+nav:
+  - ホーム: index.md
+  - 🎓 学習者向け: student.md
+  - 👨‍🏫 教師向け: teacher.md
+  - 🔧 技術仕様: docs.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/phys-ken/M5StickCPlus2_VL53L0X_Phyphox_Logger
+  generator: false
+
+copyright: Copyright &copy; 2024 phys-ken | MIT License
