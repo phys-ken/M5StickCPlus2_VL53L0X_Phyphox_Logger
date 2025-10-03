@@ -55,6 +55,7 @@ v = 0.001 m/s    ← 移動の速さ
 6. 測定が終了したら停止ボタンを教えてください。
 7. Phyphoxアプリ上で、傾きを計算できます。データも保存できます。
 
+<iframe width="280" height="160" src="https://www.youtube-nocookie.com/embed/6-5kAKFH8MQ?si=Tp9iTtyqkxi8RZDE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 
 ## 実験のコツ
