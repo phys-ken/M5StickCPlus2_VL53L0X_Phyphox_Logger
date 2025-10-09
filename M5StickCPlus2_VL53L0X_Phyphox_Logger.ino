@@ -7,11 +7,14 @@
 // VL53L0Xセンサのインスタンスを生成
 VL53L0X sensor;
 
+// センサの名前を保持するための変数
+const char* sensorName = "phys_ken_001";
+
 // M5Canvasのインスタンスを生成してスプライトの初期設定 (LovyanGFXベース)
 M5Canvas sprite(&M5.Lcd);
 
 // 移動平均フィルターの設定パラメータと変数
-const int filterSize = 10;
+const int filterSize = 2;
 float filterBuffer[filterSize];
 int filterIndex = 0;
 float preDist = 0;
@@ -22,8 +25,7 @@ float lastDist = 0.0;
 // 前回の計測時間を保持するための変数
 unsigned long lastTime = 0;
 
-// センサの名前を保持するための変数
-const char* sensorName = "phys_ken_001";
+
 
 // 内蔵LEDの状態を記録する変数。trueのときLEDは消灯状態、falseのとき点灯状態を表す。
 bool ledState = true;
@@ -181,5 +183,5 @@ void loop() {
     Serial.println(distanceInMeters, 3);    // 距離（メートル）、小数点以下3桁まで表示
   }
 
-  delay(10);   // 10ms待機
+  delay(50);   // 10ms待機
 }
