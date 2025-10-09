@@ -1,77 +1,110 @@
-// 必要なライブラリをインクルード
-#include <M5Unified.h>      // M5Unified統合ライブラリ
+/*
+ * M5StickCPlus2 + VL53L0X ToF センサによる距離測定システム
+ * 機能：距離測定、速度計算、Phyphox BLE連携、シリアル出力
+ * 作成：物理実験用データロガー
+ */
+
+#include <M5Unified.h>
 #include <Wire.h>
 #include <VL53L0X.h>
 #include <phyphoxBle.h>
 
-// VL53L0Xセンサのインスタンスを生成
+// ===========================================
+// デバイス設定（複数デバイスでの書き込み時に変更）
+// ===========================================
+const char* SENSOR_NAME = "phys_ken_001";
+
+// ===========================================
+// ハードウェア設定
+// ===========================================
+const int LED_PIN = 19;                    // M5StickCPlus2内蔵LED（LOW=点灯、HIGH=消灯）
+const int I2C_SDA_PIN = 0;                 // TOF HAT専用I2Cピン（Grove端子とは異なる）
+const int I2C_SCL_PIN = 26;                // TOF HAT専用I2Cピン（Grove端子とは異なる）
+
+// ===========================================
+// センサ設定
+// ===========================================
+const int SENSOR_TIMEOUT = 500;            // VL53L0X応答タイムアウト時間
+const int MAX_VALID_DISTANCE = 3000;       // 測定可能距離上限（3m）
+
+// ===========================================
+// フィルタ設定
+// ===========================================
+const int FILTER_SIZE = 2;                 // 移動平均によるノイズ除去（サイズ小=応答性重視）
+
+// ===========================================
+// 表示設定
+// ===========================================
+const int LCD_TEXT_SIZE_LARGE = 3;         // センサ名表示用
+const int LCD_TEXT_SIZE_NORMAL = 2;        // 測定値表示用
+const int SENSOR_NAME_Y_POS = 0;           // 画面上部配置
+const int DATA_Y_POS = 40;                 // センサ名の下に配置
+
+// ===========================================
+// タイミング設定
+// ===========================================
+const int LOOP_DELAY = 50;                 // 20Hz測定レート（BLE安定性とのバランス）
+const int SERIAL_BAUD_RATE = 115200;       // Arduino IDE標準レート
+const int DECIMAL_PLACES = 3;              // 測定精度に応じた表示桁数
+
+// ===========================================
+// グローバル変数
+// ===========================================
 VL53L0X sensor;
-
-// センサの名前を保持するための変数
-const char* sensorName = "phys_ken_001";
-
-// M5Canvasのインスタンスを生成してスプライトの初期設定 (LovyanGFXベース)
 M5Canvas sprite(&M5.Lcd);
 
-// 移動平均フィルターの設定パラメータと変数
-const int filterSize = 2;
-float filterBuffer[filterSize];
+// フィルタ関連
+float filterBuffer[FILTER_SIZE];
 int filterIndex = 0;
 float preDist = 0;
 
-// 前回の距離を保持するための変数
+// 速度計算用
 float lastDist = 0.0;
-
-// 前回の計測時間を保持するための変数
 unsigned long lastTime = 0;
 
+// 測定制御用
+bool ledState = true;                       // true=停止中、false=測定中
+unsigned long startTime = 0;               // 測定開始時刻
 
-
-// 内蔵LEDの状態を記録する変数。trueのときLEDは消灯状態、falseのとき点灯状態を表す。
-bool ledState = true;
-
-// ボタンが押されたときのタイムスタンプ（ミリ秒単位）を記録する変数
-unsigned long startTime = 0;
-
-// M5StickCPlus2の内蔵LEDのピン番号
-const int LED_PIN = 19; 
-
+/*
+ * 初期化処理
+ * ハードウェア、センサ、BLE、画面の設定を行う
+ */
 void setup() {
-  M5.begin();   // M5StickCPlus2を初期化
+  M5.begin();
 
-  pinMode(LED_PIN, OUTPUT);     // 内蔵LEDが接続されているGPIO19ピンを出力モードに設定
-  digitalWrite(LED_PIN, HIGH);  // 内蔵LEDを初期状態で消灯する（HIGHで消灯）
+  // LED初期化（測定停止状態）
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
 
-  // LCDの初期設定
+  // 画面初期化
   M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setRotation(3);
-  Serial.begin(115200);             // シリアル通信の開始
-  Serial.println("VLX53LOX started.");   // 開始のメッセージをシリアル出力
+  M5.Lcd.setRotation(3);                    // 横向き表示
+  
+  // シリアル通信初期化
+  Serial.begin(SERIAL_BAUD_RATE);
+  Serial.println("VLX53LOX started.");
 
-  // --- 修正点 ---
-  // VL53L0Xセンサの初期設定
-  // M5StickC Plus2のTOF HATは内部I2Cバス(G21:SDA, G22:SCL)に接続されています。
-  // Grove端子(G32, G33)からHAT用のピンに変更します。
-  Wire.begin(0, 26);
-  sensor.setTimeout(500);
+  // I2C通信初期化（TOF HAT専用ピン使用）
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  sensor.setTimeout(SENSOR_TIMEOUT);
   if (!sensor.init()) {
     M5.Lcd.setCursor(0, 0);
     M5.Lcd.println("Failed to detect and initialize sensor!");
     Serial.println("Failed to detect and initialize sensor!");
-    while (1) {}  // センサの初期化失敗時はここでループ
+    while (1) {}                            // 初期化失敗時は停止
   }
-  sensor.startContinuous();   // センサの連続計測モードを開始
+  sensor.startContinuous();
 
-  // PhyphoxBLEの設定と初期化
-  PhyphoxBLE::start(sensorName);
-
-  // Phyphoxでの実験の設定
+  // Phyphox BLE実験設定
+  PhyphoxBLE::start(SENSOR_NAME);
+  
   PhyphoxBleExperiment experiment;
-  experiment.setTitle(sensorName);
-  experiment.setCategory(sensorName);
+  experiment.setTitle(SENSOR_NAME);
+  experiment.setCategory(SENSOR_NAME);
   experiment.setDescription("Plot the distance from a time-of-flight sensor over time.");
 
-  // 距離表示用のグラフの設定
+  // 距離グラフ設定
   PhyphoxBleExperiment::View view;
   PhyphoxBleExperiment::Graph graph;
   graph.setLabel("x-tグラフ");
@@ -81,7 +114,7 @@ void setup() {
   graph.setLabelY("距離");
   graph.setChannel(0, 1);
 
-  // 速度表示用のグラフの設定
+  // 速度グラフ設定
   PhyphoxBleExperiment::Graph speedGraph;
   speedGraph.setLabel("v-tグラフ");
   speedGraph.setUnitX("s");
@@ -90,98 +123,101 @@ void setup() {
   speedGraph.setLabelY("速度");
   speedGraph.setChannel(0, 2);
 
-  // グラフをビューに追加し、ビューを実験に追加
   view.addElement(graph);
   view.addElement(speedGraph);
   experiment.addView(view);
   PhyphoxBLE::addExperiment(experiment);
 
-  // スプライトの設定
+  // スプライト（オフスクリーンバッファ）初期化
   sprite.setColorDepth(8);
-  sprite.setTextSize(2);
+  sprite.setTextSize(LCD_TEXT_SIZE_NORMAL);
   sprite.createSprite(M5.Lcd.width(), M5.Lcd.height());
 }
 
+/*
+ * メインループ
+ * ボタン監視、センサ読み取り、データ処理、表示更新を実行
+ */
 void loop() {
-  M5.update(); // ボタンの状態を更新
+  M5.update();
 
-  // ボタンAが押された場合
+  // ボタンA押下で測定開始/停止切り替え
   if (M5.BtnA.wasPressed()) {
-    ledState = !ledState; // LEDの状態をトグル
+    ledState = !ledState;
     if (!ledState) {
-      startTime = millis();     // ボタンを押した時刻を記録
-      digitalWrite(LED_PIN, LOW);   // LEDを点灯（LOWで点灯）
-      Serial.println("<---!!start!!--->"); // シリアル通信に開始メッセージを送信
-      Serial.println("---sec , m---");     // 見出し行を表示
+      // 測定開始
+      startTime = millis();
+      digitalWrite(LED_PIN, LOW);           // LED点灯で測定中を表示
+      Serial.println("<---!!start!!--->");
+      Serial.println("---sec , m---");
     } else {
-      digitalWrite(LED_PIN, HIGH);  // LEDを消灯（HIGHで消灯）
-      Serial.println("<---!!stop!!--->");   // シリアル通信に停止メッセージを送信
+      // 測定停止
+      digitalWrite(LED_PIN, HIGH);          // LED消灯で停止中を表示
+      Serial.println("<---!!stop!!--->");
     }
   }
 
-  int distance = sensor.readRangeSingleMillimeters();   // センサから距離を読み取る
+  // ToFセンサから距離取得
+  int distance = sensor.readRangeSingleMillimeters();
 
-  // 無効な距離のエラーチェック
-  if (distance > 3000 || sensor.timeoutOccurred()) {
-    distance = preDist;
+  // 異常値の処理（センサ範囲外またはタイムアウト）
+  if (distance > MAX_VALID_DISTANCE || sensor.timeoutOccurred()) {
+    distance = preDist;                     // 前回値を使用してスパイク除去
   }
 
-  // 移動平均フィルターの処理
+  // 移動平均フィルタによるノイズ除去
   filterBuffer[filterIndex] = distance;
-  filterIndex = (filterIndex + 1) % filterSize;
+  filterIndex = (filterIndex + 1) % FILTER_SIZE;
   float filteredDist = 0.0;
-  for (int i = 0; i < filterSize; i++) {
+  for (int i = 0; i < FILTER_SIZE; i++) {
     filteredDist += filterBuffer[i];
   }
-  filteredDist /= filterSize;
+  filteredDist /= FILTER_SIZE;
   preDist = filteredDist;
 
-  // 経過時間の計算
+  // 速度計算（数値微分）
   unsigned long currentTime = millis();
   float deltaTime = (currentTime - lastTime) / 1000.0;
-  lastTime = currentTime;   // lastTimeの更新をここに移動
+  lastTime = currentTime;
 
-  // 速度を計算 (deltaTimeが0になるのを防ぐ)
   float speed = 0.0;
   if (deltaTime > 0) {
       speed = (filteredDist - lastDist) / deltaTime;
   }
   lastDist = filteredDist;
 
-  // 距離と速度をメートルに変換
+  // 単位変換（mm → m）
   float distanceInMeters = filteredDist / 1000.0;
   float speedInMps = speed / 1000.0;
 
-  // Phyphoxに計測結果を送信
-  // M5StickCPlus2は処理が高速なため、BLE送信が多すぎると不安定になる場合がある
-  // ここでは毎回送信するが、必要に応じて間引く処理を追加しても良い
+  // Phyphoxアプリへデータ送信（BLE経由）
   PhyphoxBLE::write(distanceInMeters, speedInMps);
 
-  // LCDに計測結果を表示
+  // LCD画面更新
   sprite.fillRect(0, 0, sprite.width(), sprite.height(), BLACK);
-  sprite.setCursor(0, 0);
-  sprite.setTextSize(3);
+  
+  // センサ名表示（黄色、大きめ）
+  sprite.setCursor(0, SENSOR_NAME_Y_POS);
+  sprite.setTextSize(LCD_TEXT_SIZE_LARGE);
   sprite.setTextColor(TFT_YELLOW);
-  sprite.printf("%s\n", sensorName);   // センサ名
+  sprite.printf("%s\n", SENSOR_NAME);
 
-  sprite.setCursor(0, 40);
-  sprite.setTextSize(2);
+  // 測定値表示（白色、標準サイズ）
+  sprite.setCursor(0, DATA_Y_POS);
+  sprite.setTextSize(LCD_TEXT_SIZE_NORMAL);
   sprite.setTextColor(TFT_WHITE);
-  sprite.printf("x = %.3f m\n", distanceInMeters);   // 距離
-  sprite.printf("v = %.3f m/s\n", speedInMps);       // 速度
+  sprite.printf("x = %.3f m\n", distanceInMeters);
+  sprite.printf("v = %.3f m/s\n", speedInMps);
 
-  // スプライトを実際のLCDに描画
   sprite.pushSprite(0, 0);
 
-  // LEDが点灯している場合のみシリアル送信を行う
+  // 測定中のみCSV形式でシリアル出力
   if (!ledState) {
-    // ボタンを押してからの経過時間を秒単位で計算
     float timeDifference = (currentTime - startTime) / 1000.0;
-    // シリアル送信（時間と距離をカンマ区切りで表示、単位は省略）
-    Serial.print(timeDifference, 3);      // 経過時間（秒）、小数点以下3桁まで表示
-    Serial.print(",");                    // カンマ区切り
-    Serial.println(distanceInMeters, 3);    // 距離（メートル）、小数点以下3桁まで表示
+    Serial.print(timeDifference, DECIMAL_PLACES);
+    Serial.print(",");
+    Serial.println(distanceInMeters, DECIMAL_PLACES);
   }
 
-  delay(50);   // 10ms待機
+  delay(LOOP_DELAY);
 }
