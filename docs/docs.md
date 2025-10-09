@@ -34,7 +34,7 @@ M5StickC Plus2 VL53L0X距離測定システムの開発環境、ライブラリ�
 |------|------|
 | センサー | STMicroelectronics VL53L0X |
 | 測定方式 | Time-of-Flight (ToF) |
-| 測定範囲 | 30mm - 2000mm |
+| 測定範囲 | 30mm - 3000mm |
 | 精度 | ±3% (理想条件) |
 | 視野角 | 25° |
 | I2Cアドレス | 0x29 |
