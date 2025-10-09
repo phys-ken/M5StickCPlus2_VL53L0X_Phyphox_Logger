@@ -13,7 +13,7 @@ M5StickC Plus2 VL53L0X距離測定システムの開発環境、ライブラリ�
 ボード: M5StickC Plus2
 フラッシュサイズ: 4MB
 パーティション: Default 4MB with spiffs
-アップロード速度: 921600
+アップロード速度: 115200
 ```
 
 ## ハードウェア仕様
@@ -74,24 +74,24 @@ GitHub: https://github.com/phyphox/phyphox-arduino
 
 #### コード内での設定変更
 ```cpp
-// センサー名の設定（30行目付近）
-const char* sensorName = "phys_ken_001";  // ←ここを変更
+// センサー名の設定（17行目付近）
+const char* SENSOR_NAME = "phys_ken_001";  // ←ここを変更
 
 // 使用例:
-const char* sensorName = "phys_ken_001";  // 1班用
-const char* sensorName = "phys_ken_002";  // 2班用
-const char* sensorName = "phys_ken_003";  // 3班用
-const char* sensorName = "class2_A";      // 2組A班用
-const char* sensorName = "team_red";      // 赤チーム用
+const char* SENSOR_NAME = "phys_ken_001";  // 1班用
+const char* SENSOR_NAME = "phys_ken_002";  // 2班用
+const char* SENSOR_NAME = "phys_ken_003";  // 3班用
+const char* SENSOR_NAME = "class2_A";      // 2組A班用
+const char* SENSOR_NAME = "team_red";      // 赤チーム用
 ```
 
 #### 推奨命名規則
 ```cpp
 // 標準的な命名パターン
-"phys_ken_XXX"    // XXX = 001, 002, 003...
-"class_N_team_X"  // N = クラス番号, X = 班番号
-"sensor_N"        // N = 通し番号
-"group_X_device"  // X = グループ名
+const char* SENSOR_NAME = "phys_ken_001";    // XXX = 001, 002, 003...
+const char* SENSOR_NAME = "class_2_team_A";  // クラス番号_班番号
+const char* SENSOR_NAME = "sensor_001";      // 通し番号
+const char* SENSOR_NAME = "group_red";       // グループ名
 ```
 
 #### 注意事項
@@ -100,48 +100,31 @@ const char* sensorName = "team_red";      // 赤チーム用
 - **日本語は文字化けの可能性**があるため避ける
 - **重複しない名前**にする（同一ネットワーク内）
 
-### 大量デプロイメント用の管理
 
-#### バッチ書き込み用スクリプト例
-```bash
-# センサー名のリスト生成
-for i in {001..020}; do
-  sed "s/phys_ken_001/phys_ken_$i/g" template.ino > sensor_$i.ino
-  echo "Generated: sensor_$i.ino"
-done
-```
-
-#### センサー管理台帳
-```
-| デバイス | センサー名 | MAC Address | 担当班 | 動作確認 |
-|----------|------------|-------------|---------|----------|
-| Device01 | phys_ken_001 | XX:XX:XX:XX:XX:01 | 1班 | ✓ |
-| Device02 | phys_ken_002 | XX:XX:XX:XX:XX:02 | 2班 | ✓ |
-| Device03 | phys_ken_003 | XX:XX:XX:XX:XX:03 | 3班 | ✓ |
-```
 
 ## コード構造解析
 
 ### 主要な処理フロー
 ```cpp
 setup() {
-    M5.begin()                    // M5システム初期化
-    Wire.begin(0, 26)            // I2C初期化（HAT用ピン）
-    sensor.init()                // VL53L0Xセンサー初期化
-    PhyphoxBLE::start(sensorName) // BLE通信開始（センサー名指定）
-    // Phyphox実験設定
+    M5.begin()                      // M5システム初期化
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN) // I2C初期化（0, 26）
+    sensor.init()                   // VL53L0Xセンサー初期化
+    sensor.startContinuous()        // 連続測定モード開始
+    PhyphoxBLE::start(SENSOR_NAME)  // BLE通信開始（センサー名指定）
+    // Phyphox実験設定（距離・速度グラフ）
 }
 
 loop() {
-    M5.update()                  // ボタン状態更新
-    // ボタンA押下時の処理
-    sensor.readRangeSingleMillimeters()  // 距離測定
-    // 移動平均フィルタ処理
-    // 速度計算
-    PhyphoxBLE::write()          // BLEデータ送信
-    // LCD表示更新（センサー名表示含む）
-    // シリアル出力
-    delay(10)                    // 10ms待機
+    M5.update()                     // ボタン状態更新
+    // ボタンA押下時の測定開始/停止処理
+    sensor.readRangeSingleMillimeters() // 距離測定
+    // 移動平均フィルタ処理（FILTER_SIZE = 2）
+    // 速度計算（数値微分）
+    PhyphoxBLE::write(distance, speed)  // BLEデータ送信
+    // LCD表示更新（センサー名・測定値表示）
+    // シリアル出力（測定中のみCSV形式）
+    delay(LOOP_DELAY)               // 50ms待機（20Hz測定）
 }
 ```
 
@@ -178,28 +161,35 @@ const int LED_PIN = 19;
 
 #### 移動平均フィルタ
 ```cpp
-const int filterSize = 10;
-float filterBuffer[filterSize];
+const int FILTER_SIZE = 2;
+float filterBuffer[FILTER_SIZE];
 int filterIndex = 0;
 
 // フィルタ更新
-filterBuffer[filterIndex] = newValue;
-filterIndex = (filterIndex + 1) % filterSize;
+filterBuffer[filterIndex] = distance;
+filterIndex = (filterIndex + 1) % FILTER_SIZE;
 
 // 平均値計算
-float filteredValue = 0.0;
-for (int i = 0; i < filterSize; i++) {
-    filteredValue += filterBuffer[i];
+float filteredDist = 0.0;
+for (int i = 0; i < FILTER_SIZE; i++) {
+    filteredDist += filterBuffer[i];
 }
-filteredValue /= filterSize;
+filteredDist /= FILTER_SIZE;
 ```
 
 #### 速度計算
 ```cpp
+// 時刻取得・差分計算
+unsigned long currentTime = millis();
+float deltaTime = (currentTime - lastTime) / 1000.0;
+lastTime = currentTime;
+
+// 速度計算（数値微分）
 float speed = 0.0;
 if (deltaTime > 0) {
-    speed = (currentDistance - lastDistance) / deltaTime;
+    speed = (filteredDist - lastDist) / deltaTime;
 }
+lastDist = filteredDist;
 ```
 
 ## Phyphox BLE通信仕様
@@ -207,12 +197,12 @@ if (deltaTime > 0) {
 ### 実験構成
 ```cpp
 PhyphoxBleExperiment experiment;
-experiment.setTitle(sensorName);        // センサー名を実験名に使用
-experiment.setCategory(sensorName);     // カテゴリにもセンサー名を使用
+experiment.setTitle(SENSOR_NAME);        // センサー名を実験名に使用
+experiment.setCategory(SENSOR_NAME);     // カテゴリにもセンサー名を使用
 
 // 距離グラフ (Channel 0→1)
-PhyphoxBleExperiment::Graph distanceGraph;
-distanceGraph.setChannel(0, 1);  // time, distance
+PhyphoxBleExperiment::Graph graph;
+graph.setChannel(0, 1);  // time, distance
 
 // 速度グラフ (Channel 0→2)  
 PhyphoxBleExperiment::Graph speedGraph;
@@ -221,6 +211,11 @@ speedGraph.setChannel(0, 2);     // time, speed
 
 ### データ送信
 ```cpp
+// 単位変換（mm → m）
+float distanceInMeters = filteredDist / 1000.0;
+float speedInMps = speed / 1000.0;
+
+// Phyphoxアプリへデータ送信
 PhyphoxBLE::write(distanceInMeters, speedInMps);
 // Channel 0: 時刻（自動）
 // Channel 1: 距離（メートル）
@@ -278,21 +273,23 @@ Phyphoxで検出されない
 
 ### サンプリング周波数変更
 ```cpp
-// loop()最後のdelay値を変更
-delay(100);  // 100ms → 10Hz
-delay(50);   // 50ms → 20Hz  
-delay(10);   // 10ms → 100Hz（デフォルト）
+// LOOP_DELAY値を変更（コード上部の定数定義）
+const int LOOP_DELAY = 100;  // 100ms → 10Hz
+const int LOOP_DELAY = 50;   // 50ms → 20Hz（デフォルト）  
+const int LOOP_DELAY = 20;   // 20ms → 50Hz
 ```
 
 ### センサー名変更
 ```cpp
-const char* sensorName = "MyDevice_001";  // 任意の名前
+const char* SENSOR_NAME = "MyDevice_001";  // 任意の名前
 ```
 
 ### フィルタサイズ調整
 ```cpp
-const int filterSize = 5;   // より応答性重視
-const int filterSize = 20;  // より安定性重視
+const int FILTER_SIZE = 1;   // フィルタなし（最高応答性）
+const int FILTER_SIZE = 2;   // デフォルト（応答性重視）
+const int FILTER_SIZE = 5;   // より安定性重視
+const int FILTER_SIZE = 10;  // 最高安定性（応答遅延あり）
 ```
 
 ### 表示カスタマイズ
@@ -305,9 +302,9 @@ sprite.printf("Class_%d Group_%d\n", classNum, groupNum); // クラス・グル�
 ## 性能特性
 
 ### 処理性能
-- **測定周波数**: 約100Hz（10ms周期）
-- **BLE送信レート**: 約100Hz（フィルタなし）
-- **表示更新レート**: 約100Hz
+- **測定周波数**: 約20Hz（50ms周期）
+- **BLE送信レート**: 約20Hz
+- **表示更新レート**: 約20Hz
 
 ### 電力消費
 - **測定中**: 約80-120mA
